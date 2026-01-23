@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Joe
-// @version      1.1.1
+// @version      1.0
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -17,18 +17,14 @@
 // @connect      olva.sisofoscloud.be
 // @connect      olva.smartschool.be
 // @run-at       document-start
-// @updateURL    https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
-// @downloadURL  https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
-
 // ==/UserScript==
+
 (function () {
 	"use strict";
 
 	// =====================
 	// DARK MODE FUNCTIONS
 	// =====================
-
-	console.log("The auto-updating is working.");
 
 	function applyDarkModeStyles() {
 		const darkCSS = `
@@ -398,6 +394,7 @@
 	};
 
 	// --- Global state ---
+	let username = "";
 	let typedInput = "";
 	let lastTypedTime = 0;
 	let selectedIndex = -1;
