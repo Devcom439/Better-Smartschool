@@ -26,6 +26,8 @@
 	// DARK MODE FUNCTIONS
 	// =====================
 
+	console.log("Smartschool+ script started.");
+
 	function applyDarkModeStyles() {
 		const darkCSS = `
           /* === Body / Global === */
