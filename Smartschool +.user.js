@@ -28,7 +28,7 @@
 	// DARK MODE FUNCTIONS
 	// =====================
 
-	console.log("Smartschool+ script started.");
+	console.log("The auto-updating is working.");
 
 	function applyDarkModeStyles() {
 		const darkCSS = `
