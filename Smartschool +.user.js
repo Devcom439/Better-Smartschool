@@ -17,8 +17,10 @@
 // @connect      olva.sisofoscloud.be
 // @connect      olva.smartschool.be
 // @run-at       document-start
-// ==/UserScript==
+// @updateURL    https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
+// @downloadURL  https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
 
+// ==/UserScript==
 (function () {
 	"use strict";
 
