@@ -19,6 +19,7 @@
 // @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
 // @downloadURL  https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
+// ==/UserScript==
 
 (function () {
 	"use strict";
