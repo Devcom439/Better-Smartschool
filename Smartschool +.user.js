@@ -302,12 +302,21 @@
 	}
 
 	function initDarkModeObserver() {
+		if (!document.body) {
+			document.addEventListener("DOMContentLoaded", initDarkModeObserver, { once: true });
+			return;
+		}
+
 		const observer = new MutationObserver(() => {
 			if (document.body.classList.contains("dark-mode")) {
-				document.body.classList.add("dark-mode"); // ensure dynamic nodes match
+				document.body.classList.add("dark-mode");
 			}
 		});
-		observer.observe(document.body, { childList: true, subtree: true });
+
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true,
+		});
 	}
 
 	// =====================
@@ -583,7 +592,7 @@
 					const titleEl = blk?.querySelector(".homepage__block__top__title h2") || blk?.querySelector("h2.smsc-title--1");
 					const title = titleEl ? titleEl.textContent.trim() : id;
 					html.push(
-						`<div style="margin:4px 0 4px 12px"><button style="margin-right:8px" data-id="${id}" data-sel="${selector}">Show</button>${title}</div>`
+						`<div style="margin:4px 0 4px 12px"><button style="margin-right:8px" data-id="${id}" data-sel="${selector}">Show</button>${title}</div>`,
 					);
 				}
 			}
@@ -716,7 +725,7 @@
 
 			for (const bar of barcode_list) {
 				html.push(
-					`<div style="background-color:black; width:${bar[0]}; height:50px; position:absolute; left:${bar[1]}; top:0;">&nbsp;</div>`
+					`<div style="background-color:black; width:${bar[0]}; height:50px; position:absolute; left:${bar[1]}; top:0;">&nbsp;</div>`,
 				);
 			}
 
@@ -752,7 +761,7 @@
 		GM_openInTab(refreshPointsUrl + "#scriptopened", { active: false });
 		GM_openInTab(
 			"https://olva.sisofoscloud.be/dagplan/dagplanLLN.php?functie=krant2&key=Raadplegen%20vervangingen%20voor%20leerlingen&campus=1#scriptopened",
-			{ active: false }
+			{ active: false },
 		);
 		localStorage.setItem("lastSessionRefresh", now.toString());
 
@@ -776,7 +785,7 @@
 			onload: (res) => {
 				try {
 					const data = JSON.parse(res.responseText).sort(
-						(a, b) => new Date(a.period.dateTimeFrom) - new Date(b.period.dateTimeFrom)
+						(a, b) => new Date(a.period.dateTimeFrom) - new Date(b.period.dateTimeFrom),
 					);
 					const grouped = {};
 					for (const test of data) {
@@ -1057,7 +1066,7 @@
                 ${t.comment ? `<div><b>Toelichting:</b> ${t.comment}</div>` : ""}
                 <div><b>Datum:</b> ${t.date}</div>
             </div>
-        `
+        `,
 				)
 				.join("");
 
@@ -1083,7 +1092,7 @@
                     ${t.comment ? `<div><b>Toelichting:</b> ${t.comment}</div>` : ""}
                     <div><b>Datum:</b> ${t.date}</div>
                 </div>
-            `
+            `,
 					)
 					.join("");
 
