@@ -1228,7 +1228,7 @@
 
 			if (window.__vShortcutActive) {
 				try {
-					if (coursesBtn?.getAttribute("aria-expanded" === "false") {
+					if (coursesBtn?.getAttribute("aria-expanded" === "false")) {
 						window.__vShortcutActive = false
 						return
 					}
@@ -1246,11 +1246,11 @@
 			}
 
 			if (selectedIndex !== -1) {
-				if (linksBtn?.getAttribute("aria-expanded" === "false") {
+				if (linksBtn?.getAttribute("aria-expanded" === "false")) {
 					window.__lEventActive = false
 					return
 				}
-				else if (navBtn?.getAttribute("aria-expanded" === "false") {
+				else if (navBtn?.getAttribute("aria-expanded" === "false")) {
 					window.__gEventActive = false
 					return
 				}
