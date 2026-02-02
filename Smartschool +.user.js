@@ -1179,6 +1179,7 @@
 		const isInput = tag === "INPUT" || tag === "TEXTAREA";
 		const navBtn = q(".js-btn-shortcuts");
 		const linksBtn = q(".js-btn-links");
+		const coursesBtn = q(".js-btn-courses")
 
 		// Reset active events if their menus are collapsed
 		if (navBtn && navBtn.getAttribute("aria-expanded") === "false") window.__gEventActive = false;
@@ -1227,7 +1228,11 @@
 
 			if (window.__vShortcutActive) {
 				try {
-					const firstLi = document.querySelector(".course-list.js-courses-list li a");
+					if (coursesBtn?.getAttribute("aria-expanded" === "false") {
+						window.__vShortcutActive = false
+						return
+					}
+					const firstLi = q(".course-list.js-courses-list li a");
 					if (firstLi?.href) {
 						sessionStorage.setItem("openDocuments", "true");
 						window.location.href = firstLi.href;
@@ -1241,6 +1246,14 @@
 			}
 
 			if (selectedIndex !== -1) {
+				if (linksBtn?.getAttribute("aria-expanded" === "false") {
+					window.__lEventActive = false
+					return
+				}
+				else if (navBtn?.getAttribute("aria-expanded" === "false") {
+					window.__gEventActive = false
+					return
+				}
 				const items = getMenuItems();
 				if (items[selectedIndex]) window.location.href = items[selectedIndex].href;
 			}
