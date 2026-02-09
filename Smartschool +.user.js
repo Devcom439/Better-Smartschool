@@ -490,7 +490,7 @@
 
 	function closeBlockingEl() {
 		q(".ui-dialog-buttonset button")?.click();
-		q(".blue.ui-button")?.click();
+		setTimeout(() => {q(".blue.ui-button")?.click();}, 250)
 	}
 
 	function removeUnnecessaryHeaderEls() {
