@@ -2,20 +2,20 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      1.6
+// @version      1.7
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
 // @match        https://mijn.olva.be/index.php?*
-// @icon         https://static3.smart-school.net/smsc/svg/favicon/favicon.svg
 // @match        https://play.google.com/store/apps/details?id=be.smartschool.mobile
+// @icon         https://static3.smart-school.net/smsc/svg/favicon/favicon.svg
 // @grant        window.close
 // @grant        GM_addStyle
 // @grant        GM_openInTab
 // @grant        GM_xmlhttpRequest
 // @connect      mijn.olva.be
-// @connect      olva.sisofoscloud.be
 // @connect      olva.smartschool.be
+// @connect      olva.sisofoscloud.be
 // @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
 // @downloadURL  https://raw.githubusercontent.com/Devcom439/Better-Smartschool/main/Smartschool%20%2B.user.js
@@ -395,7 +395,7 @@
     // --- Constants ---
     const SMARTSCHOOL_URL = "https://olva.smartschool.be/";
     const TARGET_BARCODE_URL = "https://mijn.olva.be/index.php?page=97";
-    const TARGET_POINTS_URL = "https://mijn.olva.be/index.php?page=200&kd=5867";
+    const TARGET_POINTS_URL = "https://mijn.olva.be/index.php?page=200";
     const TARGET_SCHEDULE_URL = "https://olva.sisofoscloud.be/dagplan/dagplanLLNzoeken.php";
     const REFRESH_INTERVAL = 9_000_000; // 2.5 hours
     const POINTS_BLOCK_ID = "homepage__block--punten";
@@ -838,7 +838,12 @@
         const from = encodeURIComponent(now.toISOString());
         const to = encodeURIComponent(in14days.toISOString());
 
-        const testsURL = `https://olva.smartschool.be/planner/api/v1/planned-elements/user/504_6417_0?from=${from}&to=${to}&types=planned-assignments,planned-to-dos`;
+        // Get Smartschool user id
+        let plannerurl = document.querySelector("#datePickerMenu").getAttribute("plannerurl")
+        let lastTwo = plannerurl.split("/").slice(-2) // Get last two from list [..., userid, '']
+        let userId = lastTwo[0]
+
+        const testsURL = `https://olva.smartschool.be/planner/api/v1/planned-elements/user/${userId}?from=${from}&to=${to}&types=planned-assignments,planned-to-dos`;
 
         GM_xmlhttpRequest({
             method: "GET",
@@ -1033,10 +1038,30 @@
     }
 
     // --- Points ---
+    function getPointsUserId() {
+        let userId = localStorage.getItem("pointsUserId")
+        if (!userId) {
+            userId = prompt("Geef hier het getal in na '&kd=' in de URL wanneer je naar je punten op Mijn Olva gaat (bv: 5868). ")
+            if (!userId) {
+                return null
+            }
+
+            localStorage.setItem("pointsUserId", userId)
+        }
+
+        return localStorage.getItem("pointsUserId")
+    }
+
     function fetchPoints() {
+        let userId = getPointsUserId()
+        if (!userId) {
+            fetchPoints() // Recurse to retry getting the user's id, which is necessary for this function
+            return
+        }
+
         GM_xmlhttpRequest({
             method: "GET",
-            url: TARGET_POINTS_URL,
+            url: `${TARGET_POINTS_URL}&kd=${userId}`,
             onload: (res) => {
                 console.debug("First points page:", res.responseText);
                 // Check for redirect script in response
@@ -1081,7 +1106,7 @@
 
     function parseAndInsertPoints(html) {
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const subjects = doc.querySelectorAll("h4.margintop");
+        const subjects = new Set(doc.querySelectorAll("h4.margintop"));
         let totalObtained = 0;
         let totalPossible = 0;
         const result = [];
@@ -1091,6 +1116,8 @@
         let seenTests = JSON.parse(localStorage.getItem("seenTests") || "[]");
 
         for (const subjectEl of subjects) {
+            if (subjectEl.parentElement.id == "nieuwvoormijdiv") continue;
+
             const subjectName = subjectEl.childNodes[0].textContent.trim();
             const ul = subjectEl.nextElementSibling;
             if (!ul || !ul.classList.contains("rapportlijst")) continue;
