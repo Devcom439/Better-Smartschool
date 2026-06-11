@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      1.7
+// @version      1.8
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -157,9 +157,6 @@
           }
 
           body.dark-mode .smscleftnavcontainer a:hover,
-          body.dark-mode .msgContentVal a:hover {
-            color: #bbdefb !important;
-          }
 
           /* === Course / Folders === */
           body.dark-mode .showLeftNav .course-page__container,
@@ -180,6 +177,14 @@
           body.dark-mode a.course-link span.js-course-name,
           body.dark-mode a.course-link span.js-course-descr {
             color: #fff !important;
+          }
+
+          body.dark-mode .js-course-session-page__container {
+            background-color: rgb(42, 42, 42);
+          }
+
+          body.dark-mode #fileList div {
+            background-color: rgb(50,50,50);
           }
 
           /* === Notifications / Dialogs === */
@@ -250,8 +255,21 @@
           background-color: rgba(255,255,255,0.3);
           }
 
+          /* === Messages === */
+          body.dark-mode .msgContentVal a:hover {
+            color: #bbdefb !important;
+          }
 
-          /* === Misc / Modern Messages === */
+          body.dark-mode .msgContentVal,
+          body.dark-mode .message-search__wrapper,
+          body.dark-mode .modern-message__actions {
+            background-color: rgb(42, 42, 42);
+          }
+
+          body.dark-mode .message-search__select.disabled {
+            background-color: rgb(100, 100, 100);
+          }
+
           body.dark-mode .modern-message {
             background-color: #2a2a2a !important;
             border: 1px solid #333 !important;
@@ -264,6 +282,19 @@
             background-color: #3a3a3a !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.4) !important;
             cursor: pointer;
+          }
+
+          /* === Misc === */
+          body.dark-mode .smsc-contextmenu-bubble,
+          body.dark-mode #smscMainBlockContainer,
+          body.dark-mode .js-notifs-settingsbtn,
+          body.dark-mode #folders_parent_td {
+            background-color: rgb(42, 42, 42) !important;
+          }
+
+          body.dark-mode .course-ico--own,
+          body.dark-mode .switch-values span:nth-child(2) {
+            background-color: rgb(80, 80, 80) !important;
           }
         `;
         GM_addStyle(darkCSS);
@@ -401,15 +432,16 @@
     const POINTS_BLOCK_ID = "homepage__block--punten";
     const SCHEDULE_BLOCK_ID = "homepage__block--schedule";
     const CONTAINERS = {
-        "#rightcontainer": { STORAGEKEY: "blockOrderRight", HIDDENKEY: "hiddenBlockIdsRight" },
         "#leftcontainer": { STORAGEKEY: "blockOrderLeft", HIDDENKEY: "hiddenBlockIdsLeft" },
+        "#rightcontainer": { STORAGEKEY: "blockOrderRight", HIDDENKEY: "hiddenBlockIdsRight" },
     };
     const CONTAINER_CHILDREN = {
-        "#rightcontainer": ["#homepage__block--punten", "#homepage__block--toetsen"],
-        "#leftcontainer": ["#homepage__block--schedule"],
+        "#leftcontainer": [".homepage__block #homepage__block--schedule"],
+        "#rightcontainer": [".homepage__block #homepage__block--punten", ".homepage__block #homepage__block--toetsen"],
     };
 
     // --- Global state ---
+    let tries = 0
     let username = "";
     let typedInput = "";
     let lastTypedTime = 0;
@@ -514,14 +546,46 @@
     }
 
     // --- Block Reordering & Hiding ---
+    function enableTopnavCustomization() {
+        const nav = q(".topnav");
+        if (!nav) return;
+
+        for (const item of Array.from(nav.children)) {
+            const hideBtn = document.createElement("button");
+            hideBtn.textContent = "×";
+
+            hideBtn.onclick = () => {
+                item.style.display = "none";
+            };
+
+            item.appendChild(hideBtn);
+        }
+    }
+
     function enableBlockReordering(containerSelector) {
-        const { STORAGEKEY, HIDDENKEY } = CONTAINERS[containerSelector];
+        let isTopnav = false
+
+        const parentContainer = q("#container")
+        if (!parentContainer) {
+            if (tries == 3) return
+
+            console.log("No parent container found")
+            setTimeout(enableBlockReordering, 1000)
+
+            tries += 1
+            return
+        }
+
         const children = CONTAINER_CHILDREN[containerSelector];
+        const { STORAGEKEY, HIDDENKEY } = CONTAINERS[containerSelector];
 
         function tryInit() {
-            if (!isReady()) return false;
+            if (!isReady()) {
+                console.log(`No container found for ${containerSelector}`);
+                return false;
+            }
 
-            const container = q(containerSelector);
+            const container = q(containerSelector, parentContainer);
 
             // apply stored order
             const order = JSON.parse(localStorage.getItem(STORAGEKEY) || "[]");
@@ -530,42 +594,51 @@
                 if (b) container.appendChild(b);
             }
 
-            for (const block of qa(".homepage__block", container)) {
-                if (!block.id) block.id = "homepage__block--" + Math.random().toString(36).slice(2);
-                if (block.querySelector(".reorder-btn")) continue;
+            if (HIDDENKEY == "hiddenBlockIdsTopnav") {
+                isTopnav = true
+            }
 
-                if (hiddenSets[containerSelector].has(block.id)) block.style.display = "none";
-
+            let bar = null
+            for (const block of Array.from(container.children)) {
                 let top = q(".homepage__block__top", block);
-                if (!top) {
-                    top = document.createElement("div");
-                    top.className = "homepage__block__top";
-                    top.innerHTML = `<div class="homepage__block__top__title"></div><div class="homepage__block__top__buttonbar"></div>`;
-                    block.insertBefore(top, block.firstElementChild);
-                }
-                const bar = q(".homepage__block__top__buttonbar", top);
 
-                // up/down buttons
-                for (const [dir, label] of [
-                    ["up", "↑"],
-                    ["down", "↓"],
-                ]) {
-                    const btn = document.createElement("button");
-                    btn.className = "reorder-btn";
-                    btn.textContent = label;
-                    btn.title = dir === "up" ? "Verplaats omhoog" : "Verplaats omlaag";
-                    btn.style.cssText = "margin-left:6px;cursor:pointer;font-size:0.9em;display:none";
-                    btn.onclick = (e) => {
-                        e.stopPropagation();
-                        const sib = dir === "up" ? block.previousElementSibling : block.nextElementSibling;
-                        if (sib?.classList.contains("homepage__block")) {
-                            if (dir === "up") container.insertBefore(block, sib);
-                            else container.insertBefore(sib, block);
-                            const ids = qa(".homepage__block", container).map((b) => b.id);
-                            localStorage.setItem(STORAGEKEY, JSON.stringify(ids));
-                        }
-                    };
-                    bar.appendChild(btn);
+                if (!isTopnav) {
+                    if (!block.id) block.id = "homepage__block--" + Math.random().toString(36).slice(2);
+                    if (block.querySelector(".reorder-btn")) continue;
+
+                    if (hiddenSets[containerSelector].has(block.id)) block.style.display = "none";
+
+                    if (!top) {
+                        top = document.createElement("div");
+                        top.className = "homepage__block__top";
+                        top.innerHTML = `<div class="homepage__block__top__title"></div><div class="homepage__block__top__buttonbar"></div>`;
+                        block.insertBefore(top, block.firstElementChild);
+                    }
+
+                    // up/down buttons
+                    bar = q(".homepage__block__top__buttonbar", top);
+                    for (const [dir, label] of [
+                        ["up", "↑"],
+                        ["down", "↓"],
+                    ]) {
+                        const btn = document.createElement("button");
+                        btn.className = "reorder-btn";
+                        btn.textContent = label;
+                        btn.title = dir === "up" ? "Verplaats omhoog" : "Verplaats omlaag";
+                        btn.style.cssText = "margin-left:6px;cursor:pointer;font-size:0.9em;display:none";
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            const sib = dir === "up" ? block.previousElementSibling : block.nextElementSibling;
+                            if (sib?.classList.contains("homepage__block")) {
+                                if (dir === "up") container.insertBefore(block, sib);
+                                else container.insertBefore(sib, block);
+
+                                const ids = qa(".homepage__block", container).map((b) => b.id);
+                                localStorage.setItem(STORAGEKEY, JSON.stringify(ids));
+                            }
+                        };
+                        bar.appendChild(btn);
+                    }
                 }
 
                 // hide button
@@ -587,32 +660,23 @@
         }
 
         function isReady() {
-            const container = q(containerSelector);
-            if (!container) return false;
+            const container = q(containerSelector, parentContainer);
+            if (!container) {
+                return false;
+            }
 
-            return children.every((sel) => q(sel));
+            return container;
         }
 
         if (tryInit()) return;
-
-        // Otherwise observe DOM changes
-        const observer = new MutationObserver(() => {
-            if (tryInit()) {
-                observer.disconnect();
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-        });
     }
 
     function setupGlobalEdit() {
-        const menu = q(".topnav__menu");
+        let menu = q(".topnav__menu");
         function wait() {
             if (!menu) {
                 menu = q(".topnav__menu");
+                console.log("No topnav menu found, retrying...")
                 setTimeout(wait, 100);
             } else {
                 const edit = document.createElement("div");
@@ -839,8 +903,10 @@
         const to = encodeURIComponent(in14days.toISOString());
 
         // Get Smartschool user id
-        let plannerurl = document.querySelector("#datePickerMenu").getAttribute("plannerurl")
-        let lastTwo = plannerurl.split("/").slice(-2) // Get last two from list [..., userid, '']
+        let plannerUrl = document.querySelector("#datePickerMenu")?.getAttribute("plannerUrl")
+        if (!plannerUrl) return;
+
+        let lastTwo = plannerUrl.split("/").slice(-2) // Get last two from list [..., userid, '']
         let userId = lastTwo[0]
 
         const testsURL = `https://olva.smartschool.be/planner/api/v1/planned-elements/user/${userId}?from=${from}&to=${to}&types=planned-assignments,planned-to-dos`;
@@ -1347,8 +1413,7 @@
             return;
         }
 
-        const anyMenuExpanded =
-              (navBtn && navBtn.getAttribute("aria-expanded") === "true") || (linksBtn && linksBtn.getAttribute("aria-expanded") === "true");
+        const anyMenuExpanded = (navBtn && navBtn.getAttribute("aria-expanded") === "true") || (linksBtn && linksBtn.getAttribute("aria-expanded") === "true");
         if (!anyMenuExpanded) return;
 
         resetTypedInput();
@@ -1400,9 +1465,13 @@
             expandTreeElement();
             fetchBarcode();
 
-            enableBlockReordering("#leftcontainer");
-            enableBlockReordering("#rightcontainer");
-            setupGlobalEdit();
+            // Delaying so our own blocks are loaded
+            setTimeout(() => {
+                enableBlockReordering("#leftcontainer");
+                enableBlockReordering("#rightcontainer");
+                // enableTopnavCustomization()
+                setupGlobalEdit();
+            }, 1200)
 
             removeUnnecessaryHeaderEls();
             initResizableContainers();
@@ -1421,6 +1490,33 @@
             q("#platformchooser_form__platform").value = "olva.smartschool.be";
             q("#platformchooserSubmitButton").disabled = "";
             q("#platformchooserSubmitButton").click();
+        }
+
+        if (window.location.href.startsWith("https://olva.smartschool.be/login")) { // Automatically login via Google
+            console.log("On login screen")
+
+            // Close the popup dialog box if it exists
+            const popupDialogBox = document.querySelector('div.dialog.js-dialog');
+
+            if (popupDialogBox) {
+                const confirmButton = popupDialogBox.querySelector('div.dialog.js-dialog button.smscButton.blue');
+                if (confirmButton) confirmButton.click();
+            }
+
+            const loginFormContainer = document.querySelector('.login-app__form');
+            if (!loginFormContainer) {
+                setTimeout(init, 500)
+                return
+            }
+
+            if (loginFormContainer) {
+                const googleButton = loginFormContainer.querySelector('a.smscButton[href="/login/sso/init/google"]');
+
+                if (googleButton) googleButton.click();
+            }
+
+            console.log(popupDialogBox)
+            console.log(loginFormContainer)
         }
 
         if (!window.location.href.startsWith(SMARTSCHOOL_URL)) return;
