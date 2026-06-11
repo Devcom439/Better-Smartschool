@@ -1107,7 +1107,11 @@
     function getPointsUserId() {
         let userId = localStorage.getItem("pointsUserId")
         if (!userId) {
-            userId = prompt("Geef hier het getal in na '&kd=' in de URL wanneer je naar je punten op Mijn Olva gaat (bv: 5868). ")
+            // Open Mijn Olva for the user in an inactive tab
+            const link = document.querySelector("#WeblinksyGQC27Gi1PISAz4UJ1XvKxEZC")?.href
+            GM_openInTab(link, { active: false })
+
+            userId = prompt("Dit is nodig om toegang te krijgen tot je punten.\n1) Ga naar Rapport en Nota's op Mijn OLVA\n2) Selecteer het laatste getal van in de URL (bv. 1234)\n3) Plak die hier en klik op OK")
             if (!userId) {
                 return null
             }
