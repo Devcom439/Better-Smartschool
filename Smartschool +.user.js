@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      1.8
+// @version      1.9
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,6 +23,22 @@
 
 (function () {
     "use strict";
+    const currentVersion = "1.9"
+
+    function handleNewVersion() {
+        const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
+
+        if (storedVersion != currentVersion) {
+            console.log("Updated to", currentVersion, "!")
+
+            // Reset outdated stored values
+            localStorage.removeItem("className", null);
+            localStorage.removeItem("seenTests", null);
+            localStorage.removeItem("barcodeDivsStyle", null);
+
+            localStorage.setItem("SmartschoolPlusVersion", currentVersion);
+        }
+    }
 
     // =====================
     // DARK MODE FUNCTIONS
@@ -82,7 +98,7 @@
           }
 
           /* === Buttons === */
-          body.dark-mode button:not(.topnav__btn):not(.news__feed__button):not(.icon):not(.metadata__buttonbar__buttons button):not(.tree__edit__placeholder):not(.wholedays__expand-button-overflow-indicator):not(.todoColumnContainer-KCyuk *):not(.splitdetail *),
+          body.dark-mode button:not(.topnav__btn):not(.news__feed__button):not(.icon):not(.metadata__buttonbar__buttons button):not(.tree__edit__placeholder):not(.wholedays__expand-button-overflow-indicator):not(.todoColumnContainer-KCyuk *):not(.splitdetail *):not(.twinbutton__button--middle.twinbutton__button--active),
           body.dark-mode .btn:not(.js-todo-column-button-filter):not(.metadata__buttonbar__buttons button),
           body.dark-mode input[type=button],
           body.dark-mode input[type=submit] {
@@ -157,6 +173,13 @@
           }
 
           body.dark-mode .smscleftnavcontainer a:hover,
+
+          /* === Planner === */
+          body.dark-mode .itemsWrapper-TTIS7,
+          body.dark-mode .spacer-w0RDl {
+            background-color: rgb(42, 42, 42) !important;
+          }
+
 
           /* === Course / Folders === */
           body.dark-mode .showLeftNav .course-page__container,
@@ -442,11 +465,12 @@
 
     // --- Global state ---
     let tries = 0
-    let username = "";
+    // let username = "";
     let typedInput = "";
     let lastTypedTime = 0;
     let selectedIndex = -1;
-    let TARGET_CLASS = localStorage.className || "";
+    let justLoggedIn = localStorage.getItem("justLoggedIn") === true
+    let targetClass = localStorage.getItem("className") || null;
 
     // Cache hidden sets
     const hiddenSets = {};
@@ -521,12 +545,12 @@
 
     // --- DOM Modifiers ---
     function expandTreeElement() {
-        if (!TARGET_CLASS) return;
+        if (!targetClass) return;
         for (const mapEl of qa('li[rel="map"]')) {
             const anchor = q("a", mapEl);
             if (!anchor) continue;
             const txt = anchor.textContent.trim().toLowerCase();
-            if (TARGET_CLASS.toLowerCase().includes(txt)) {
+            if (targetClass.toLowerCase().includes(txt)) {
                 simulateClickWhenReady(mapEl, 2);
                 break;
             }
@@ -903,11 +927,27 @@
         const to = encodeURIComponent(in14days.toISOString());
 
         // Get Smartschool user id
-        let plannerUrl = document.querySelector("#datePickerMenu")?.getAttribute("plannerUrl")
-        if (!plannerUrl) return;
+        let userId = localStorage.getItem("SmartschoolUserId")
+        if (!userId) {
+            console.log("Fetching Smartschool userId...")
 
-        let lastTwo = plannerUrl.split("/").slice(-2) // Get last two from list [..., userid, '']
-        let userId = lastTwo[0]
+            let plannerUrl = document.querySelector("#datePickerMenu")?.getAttribute("plannerUrl")
+            if (!plannerUrl) {
+                console.error("Could not find plannerUrl");
+                return;
+            }
+
+            let lastTwo = plannerUrl.split("/").slice(-2) // Get last two from list [..., userid, '']
+
+            userId = lastTwo[0]
+            if (!userId) {
+                console.error("Could not fetch Smartschool userId");
+                return;
+            }
+
+
+            localStorage.setItem("SmartschoolUserId", userId)
+        }
 
         const testsURL = `https://olva.smartschool.be/planner/api/v1/planned-elements/user/${userId}?from=${from}&to=${to}&types=planned-assignments,planned-to-dos`;
 
@@ -922,19 +962,30 @@
                     );
                     const grouped = {};
                     for (const test of data) {
-                        // if (!test.isParticipant && test.isParticipant != null) continue;
-                        if (test.resolvedStatus === "resolved") continue;
-                        if (!TARGET_CLASS) {
-                            TARGET_CLASS = test.participants.groups[0].name;
-                            localStorage.setItem("className", TARGET_CLASS);
+                        // Set targetClass if not set yet
+                        if (!targetClass) {
+                            console.log("No targetClass found, fetching new...")
+                            targetClass = test.participants.groups[0].name;
+
+                            if (!targetClass) {
+                                console.warn("No targetClass found, something is wrong or no tests planned yet.")
+                                return
+                            }
+
+                            localStorage.setItem("className", targetClass);
                         }
-                        console.debug(test);
+
+                        if (test.resolvedStatus === "resolved") continue;
+
                         const testDate = new Date(test.period.dateTimeTo);
                         if (testDate < new Date()) continue;
+
                         const iso = testDate.toISOString().split("T")[0];
                         (grouped[iso] ||= []).push(test);
                     }
+
                     insertUpcomingTestsBlock(grouped);
+
                 } catch (err) {
                     console.error("Error parsing upcoming tests:", err);
                 }
@@ -981,7 +1032,7 @@
 
         block.innerHTML = `
       <div class="homepage__block__top">
-        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Toetsen voor ${TARGET_CLASS}</h2></div>
+        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Toetsen voor ${targetClass}</h2></div>
         <div class="homepage__block__top__buttonbar"></div>
       </div>
       ${html.join("")}
@@ -1027,8 +1078,8 @@
                 }
 
                 if (
-                    TARGET_CLASS &&
-                    !classGroup.toLowerCase().includes(TARGET_CLASS.toLowerCase())
+                    targetClass &&
+                    !classGroup.toLowerCase().includes(targetClass.toLowerCase())
                 ) {
                     continue;
                 }
@@ -1096,7 +1147,7 @@
         if (!html.length) html.push(`<p>Geen vervangingen gevonden</p>`);
         block.innerHTML = `
       <div class="homepage__block__top">
-        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Vervanginen voor ${TARGET_CLASS}</h2></div>
+        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Vervanginen voor ${targetClass}</h2></div>
         <div class="homepage__block__top__buttonbar"></div>
       </div>
       <div class="homepage__block__content">${html.join("")}</div>
@@ -1337,7 +1388,7 @@
                     return;
                 case "b":
                     event.preventDefault();
-                    simulateClickWhenReady(q(".js-btn-messages"));
+                    simulateClickWhenReady(q(".js-favourites-container"));
                     return;
                 case "v":
                     event.preventDefault();
@@ -1463,6 +1514,15 @@
         await safeFetch("Schedule", fetchSchedule, (data) => !/niet aangemeld/i.test(data));
         await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
 
+        console.log(justLoggedIn)
+        if (justLoggedIn) {
+            justLoggedIn = false
+            localStorage.setItem("justLoggedIn", false);
+            console.log("reloading window")
+
+            setTimeout(function() {window.location.reload()}, 2000);
+        }
+
         setTimeout(() => {
             setupDarkModeButton();
             closeBlockingEl();
@@ -1475,7 +1535,7 @@
                 enableBlockReordering("#rightcontainer");
                 // enableTopnavCustomization()
                 setupGlobalEdit();
-            }, 1200)
+            }, 1500)
 
             removeUnnecessaryHeaderEls();
             initResizableContainers();
@@ -1499,28 +1559,35 @@
         if (window.location.href.startsWith("https://olva.smartschool.be/login")) { // Automatically login via Google
             console.log("On login screen")
 
-            // Close the popup dialog box if it exists
-            const popupDialogBox = document.querySelector('div.dialog.js-dialog');
+            setTimeout(function() {
 
-            if (popupDialogBox) {
-                const confirmButton = popupDialogBox.querySelector('div.dialog.js-dialog button.smscButton.blue');
-                if (confirmButton) confirmButton.click();
-            }
+                // Close the popup dialog box if it exists
+                const popupDialogBox = document.querySelector('div.dialog.js-dialog');
+                console.log(popupDialogBox)
 
-            const loginFormContainer = document.querySelector('.login-app__form');
-            if (!loginFormContainer) {
-                setTimeout(init, 500)
+                if (popupDialogBox) {
+                    const confirmButton = popupDialogBox.querySelector('div.dialog.js-dialog button.smscButton.blue');
+                    if (confirmButton) confirmButton.click();
+                }
+
+                const loginFormContainer = document.querySelector('.login-app__form');
+                console.log(loginFormContainer)
+                if (!loginFormContainer) {
+                    setTimeout(init, 500)
+                    return
+                }
+
+                if (loginFormContainer) {
+                    const googleButton = loginFormContainer.querySelector('a.smscButton[href="/login/sso/init/google"]');
+
+                    if (googleButton) googleButton.click();
+                }
+
+                justLoggedIn = true
+                localStorage.setItem("justLoggedIn", true)
+
                 return
-            }
-
-            if (loginFormContainer) {
-                const googleButton = loginFormContainer.querySelector('a.smscButton[href="/login/sso/init/google"]');
-
-                if (googleButton) googleButton.click();
-            }
-
-            console.log(popupDialogBox)
-            console.log(loginFormContainer)
+            }, 500)
         }
 
         if (!window.location.href.startsWith(SMARTSCHOOL_URL)) return;
@@ -1530,7 +1597,7 @@
 
         document.addEventListener("keydown", handleKeydown);
 
-        username = q(".hlp-vert-box span")?.textContent.trim() || "";
+        // username = q(".hlp-vert-box span")?.textContent.trim() || "";
 
         if (localStorage.getItem("openDocuments") === "true") {
             localStorage.removeItem("openDocuments");
@@ -1539,6 +1606,8 @@
 
         refreshSessTokens();
         runMain();
+
+        handleNewVersion()
     }
     init();
 })();
