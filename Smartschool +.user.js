@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      1.9
+// @version      2.0
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,7 +23,7 @@
 
 (function () {
     "use strict";
-    const currentVersion = "1.9"
+    const currentVersion = "2.0"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
@@ -469,7 +469,7 @@
     let typedInput = "";
     let lastTypedTime = 0;
     let selectedIndex = -1;
-    let justLoggedIn = localStorage.getItem("justLoggedIn") === true
+    // let justLoggedIn = localStorage.getItem("justLoggedIn") === "true";
     let targetClass = localStorage.getItem("className") || null;
 
     // Cache hidden sets
@@ -961,11 +961,16 @@
                         (a, b) => new Date(a.period.dateTimeFrom) - new Date(b.period.dateTimeFrom),
                     );
                     const grouped = {};
+                    console.debug(data)
                     for (const test of data) {
                         // Set targetClass if not set yet
                         if (!targetClass) {
                             console.log("No targetClass found, fetching new...")
-                            targetClass = test.participants.groups[0].name;
+                            const possibleClasses = [];
+                            for (let i; i++; i<5) {
+                                const className = test.participants.groups[i]?.name
+                                if (className) possibleClasses.push(className)
+                            }
 
                             if (!targetClass) {
                                 console.warn("No targetClass found, something is wrong or no tests planned yet.")
@@ -1262,9 +1267,11 @@
 
                 const testObj = { subject: subjectName, title, score: scoreText, comment, date };
 
-                if (!seenTests.includes(title)) {
+                const storeName = title + "_" + date
+
+                if (!seenTests.includes(storeName)) {
                     newTests.push(testObj);
-                    seenTests.push(title);
+                    seenTests.push(storeName);
                 }
 
                 tests.push(testObj);
@@ -1514,14 +1521,14 @@
         await safeFetch("Schedule", fetchSchedule, (data) => !/niet aangemeld/i.test(data));
         await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
 
-        console.log(justLoggedIn)
-        if (justLoggedIn) {
-            justLoggedIn = false
-            localStorage.setItem("justLoggedIn", false);
-            console.log("reloading window")
+//         console.log("Just logged in: ", justLoggedIn);
+//         if (justLoggedIn) {
+//             justLoggedIn = false;
+//             localStorage.setItem("justLoggedIn", false);
 
-            setTimeout(function() {window.location.reload()}, 2000);
-        }
+//             console.log("reloading window");
+//             setTimeout(function() {window.location.reload()}, 2000);
+//         }
 
         setTimeout(() => {
             setupDarkModeButton();
@@ -1551,9 +1558,11 @@
             return;
         }
         if (window.location.href.startsWith("https://oauth.smartschool.be/OAuth/index/platformchooser")) {
-            q("#platformchooser_form__platform").value = "olva.smartschool.be";
-            q("#platformchooserSubmitButton").disabled = "";
-            q("#platformchooserSubmitButton").click();
+            setTimeout(() => {
+                q("#platformchooserSubmitButton").disabled = "";
+                q("#platformchooser_form__platform").value = "olva.smartschool.be";
+                q("#platformchooserSubmitButton").click();
+            }, 1000)
         }
 
         if (window.location.href.startsWith("https://olva.smartschool.be/login")) { // Automatically login via Google
@@ -1580,12 +1589,13 @@
                 if (loginFormContainer) {
                     const googleButton = loginFormContainer.querySelector('a.smscButton[href="/login/sso/init/google"]');
 
-                    if (googleButton) googleButton.click();
+                    if (googleButton) {
+                        // justLoggedIn = true
+                        // localStorage.setItem("justLoggedIn", true)
+                        
+                        googleButton.click();
+                    }
                 }
-
-                justLoggedIn = true
-                localStorage.setItem("justLoggedIn", true)
-
                 return
             }, 500)
         }
