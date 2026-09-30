@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      2.0
+// @version      2.1
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,7 +23,7 @@
 
 (function () {
     "use strict";
-    const currentVersion = "2.0"
+    const currentVersion = "2.1"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
@@ -469,7 +469,7 @@
     let typedInput = "";
     let lastTypedTime = 0;
     let selectedIndex = -1;
-    // let justLoggedIn = localStorage.getItem("justLoggedIn") === "true";
+    let justLoggedIn = localStorage.getItem("justLoggedIn") === "true";
     let targetClass = localStorage.getItem("className") || null;
 
     // Cache hidden sets
@@ -1521,14 +1521,14 @@
         await safeFetch("Schedule", fetchSchedule, (data) => !/niet aangemeld/i.test(data));
         await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
 
-//         console.log("Just logged in: ", justLoggedIn);
-//         if (justLoggedIn) {
-//             justLoggedIn = false;
-//             localStorage.setItem("justLoggedIn", false);
+                console.log("Just logged in: ", justLoggedIn);
+                if (justLoggedIn) {
+                    justLoggedIn = false;
+                    localStorage.setItem("justLoggedIn", false);
 
-//             console.log("reloading window");
-//             setTimeout(function() {window.location.reload()}, 2000);
-//         }
+                    console.log("reloading window");
+                    setTimeout(function() {window.location.reload()}, 2000);
+                }
 
         setTimeout(() => {
             setupDarkModeButton();
@@ -1590,14 +1590,16 @@
                     const googleButton = loginFormContainer.querySelector('a.smscButton[href="/login/sso/init/google"]');
 
                     if (googleButton) {
-                        // justLoggedIn = true
-                        // localStorage.setItem("justLoggedIn", true)
-                        
+                        justLoggedIn = true
+                        localStorage.setItem("justLoggedIn", true)
+
                         googleButton.click();
                     }
                 }
                 return
             }, 500)
+
+            return;
         }
 
         if (!window.location.href.startsWith(SMARTSCHOOL_URL)) return;
