@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      2.1
+// @version      2.2
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,7 +23,7 @@
 
 (function () {
     "use strict";
-    const currentVersion = "2.1"
+    const currentVersion = "2.2"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
@@ -60,7 +60,8 @@
           body.dark-mode main div:not(.mainPage-Zrcmt, .mainPage-Zrcmt *),
           body.dark-mode section div:not(.mainPage-Zrcmt, .mainPage-Zrcmt *),
           body.dark-mode .content div,
-          body.dark-mode .page-container div {
+          body.dark-mode .page-container div,
+          body.dark-mode blockquote {
             background-color: #1e1e1e !important;
           }
 
@@ -1082,10 +1083,7 @@
                     continue
                 }
 
-                if (
-                    targetClass &&
-                    !classGroup.toLowerCase().includes(targetClass.toLowerCase())
-                ) {
+                if (targetClass && !classGroup.toLowerCase().includes(targetClass.toLowerCase())) {
                     continue;
                 }
 
@@ -1123,7 +1121,7 @@
             3: "(Online) Les",
             "LW": "Lokaalwissel",
             "*": "Thuis blijven",
-            "N/A": "N/A"
+            "N/A": "Geen"
         };
         let current = "";
         for (let i = 0; i < schedule.length; i++) {
@@ -1152,7 +1150,7 @@
         if (!html.length) html.push(`<p>Geen vervangingen gevonden</p>`);
         block.innerHTML = `
       <div class="homepage__block__top">
-        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Vervanginen voor ${targetClass}</h2></div>
+        <div class="homepage__block__top__title"><h2 class="smsc-title--1" style="color:#000">Vervangingen voor ${targetClass}</h2></div>
         <div class="homepage__block__top__buttonbar"></div>
       </div>
       <div class="homepage__block__content">${html.join("")}</div>
@@ -1160,30 +1158,36 @@
     }
 
     // --- Points ---
+    let userInPrompt = false
     function getPointsUserId() {
-        let userId = localStorage.getItem("pointsUserId")
+        let userId = localStorage.getItem("pointsUserId");
         if (!userId) {
-            // Open Mijn Olva for the user in an inactive tab
-            const link = document.querySelector("#WeblinksyGQC27Gi1PISAz4UJ1XvKxEZC")?.href
-            GM_openInTab(link, { active: false })
+            if (userInPrompt) return null;
 
-            userId = prompt("Dit is nodig om toegang te krijgen tot je punten.\n1) Ga naar Rapport en Nota's op Mijn OLVA\n2) Selecteer het laatste getal van in de URL (bv. 1234)\n3) Plak die hier en klik op OK")
-            if (!userId) {
-                return null
+            // Prompt the user for their Mijn Olva user id
+            const link = document.querySelector("#WeblinksyGQC27Gi1PISAz4UJ1XvKxEZC")?.href;
+            GM_openInTab(link, { active: false });
+
+            while (!userId) {
+                userInPrompt = true;
+                userId = prompt(
+                    "Dit is nodig om toegang te krijgen tot je punten.\n" +
+                    "1) Ga naar Rapport en Nota's op Mijn OLVA\n" +
+                    "2) Selecteer het laatste getal van in de URL (bv. 1234)\n" +
+                    "3) Plak die hier en klik op OK"
+                );
+                userInPrompt = false;
             }
 
-            localStorage.setItem("pointsUserId", userId)
+            localStorage.setItem("pointsUserId", userId);
         }
 
-        return localStorage.getItem("pointsUserId")
+        return userId
     }
 
     function fetchPoints() {
         let userId = getPointsUserId()
-        if (!userId) {
-            fetchPoints() // Recurse to retry getting the user's id, which is necessary for this function
-            return
-        }
+        if (!userId) return;
 
         GM_xmlhttpRequest({
             method: "GET",
@@ -1521,14 +1525,15 @@
         await safeFetch("Schedule", fetchSchedule, (data) => !/niet aangemeld/i.test(data));
         await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
 
-                console.log("Just logged in: ", justLoggedIn);
-                if (justLoggedIn) {
-                    justLoggedIn = false;
-                    localStorage.setItem("justLoggedIn", false);
+        // Uncomment if tests or points don't load after login
+        //         console.log("Just logged in: ", justLoggedIn);
+        //         if (justLoggedIn) {
+        //             justLoggedIn = false;
+        //             localStorage.setItem("justLoggedIn", false);
 
-                    console.log("reloading window");
-                    setTimeout(function() {window.location.reload()}, 2000);
-                }
+        //             console.log("reloading window");
+        //             setTimeout(function() {window.location.reload()}, 500);
+        //         }
 
         setTimeout(() => {
             setupDarkModeButton();
@@ -1616,10 +1621,10 @@
             simulateClickWhenReady(q(".smsc-column-nav__button--documents"));
         }
 
+        handleNewVersion()
+
         refreshSessTokens();
         runMain();
-
-        handleNewVersion()
     }
     init();
 })();
