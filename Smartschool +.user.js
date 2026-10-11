@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      2.2
+// @version      2.3
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,7 +23,7 @@
 
 (function () {
     "use strict";
-    const currentVersion = "2.2"
+    const currentVersion = "2.3"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
@@ -920,6 +920,24 @@
     }
 
     // --- Upcoming Tests ---
+    function getTargetClass(data) {
+        const possibleClasses = {};
+
+        for (const test of data) {
+            for (const group of test.participants.groups) {
+                const className = group.name;
+                if (!className) continue;
+
+                possibleClasses[className] = (possibleClasses[className] || 0) + 1;
+            }
+        }
+
+        const classesSorted = Object.entries(possibleClasses)
+        .sort(([, a], [, b]) => a - b);
+
+        return classesSorted.at(-1)?.[0] ?? null;
+    }
+
     function fetchUpcomingTests() {
         const now = new Date();
         const in14days = new Date();
@@ -961,26 +979,23 @@
                     const data = JSON.parse(res.responseText).sort(
                         (a, b) => new Date(a.period.dateTimeFrom) - new Date(b.period.dateTimeFrom),
                     );
-                    const grouped = {};
                     console.debug(data)
-                    for (const test of data) {
-                        // Set targetClass if not set yet
+
+                    // Set targetClass if not set yet
+                    if (!targetClass) {
+                        targetClass = getTargetClass(data);
+
                         if (!targetClass) {
-                            console.log("No targetClass found, fetching new...")
-                            const possibleClasses = [];
-                            for (let i; i++; i<5) {
-                                const className = test.participants.groups[i]?.name
-                                if (className) possibleClasses.push(className)
-                            }
-
-                            if (!targetClass) {
-                                console.warn("No targetClass found, something is wrong or no tests planned yet.")
-                                return
-                            }
-
-                            localStorage.setItem("className", targetClass);
+                            targetClass = prompt("Er is geen klas automatisch gevonden. Gelieve die hier in te geven (met hoofdletters).");
                         }
 
+
+                        localStorage.setItem("className", targetClass);
+                        window.location.reload()
+                    }
+
+                    const grouped = {};
+                    for (const test of data) {
                         if (test.resolvedStatus === "resolved") continue;
 
                         const testDate = new Date(test.period.dateTimeTo);
@@ -1521,9 +1536,9 @@
             return;
         }
 
+        await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
         await safeFetch("Points", fetchPoints, (data) => !/splashscreen oauth/i.test(data));
         await safeFetch("Schedule", fetchSchedule, (data) => !/niet aangemeld/i.test(data));
-        await safeFetch("Tests", fetchUpcomingTests, (data) => !/login-app/i.test(data));
 
         // Uncomment if tests or points don't load after login
         //         console.log("Just logged in: ", justLoggedIn);
