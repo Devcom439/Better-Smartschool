@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
-// @author       Bas D.
+// @author       Bas
 // @version      2.3
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
