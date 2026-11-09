@@ -2,7 +2,7 @@
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
 // @author       Bas D.
-// @version      2.4
+// @version      2.4.1
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,20 +23,20 @@
 
 (function () {
     "use strict";
-    const currentVersion = "2.4"
+    const currentVersion = "2.4.1"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
 
         if (storedVersion != currentVersion) {
-            console.log("Updated to", currentVersion, "!")
-
             // Reset outdated stored values
             localStorage.removeItem("className", null);
             localStorage.removeItem("seenTests", null);
             localStorage.removeItem("barcodeDivsStyle", null);
 
             localStorage.setItem("SmartschoolPlusVersion", currentVersion);
+
+            console.log("Updated to", currentVersion, "!")
         }
     }
 
@@ -1214,7 +1214,7 @@
 
         GM_xmlhttpRequest({
             method: "GET",
-            url: `${TARGET_POINTS_URL}&kd=${userId}`,
+            url: `${TARGET_POINTS_URL}&kd=${userId}#scriptopened`,
             onload: (res) => {
                 console.debug("First points page:", res.responseText);
                 // Check for redirect script in response
