@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Smartschool+
 // @namespace    http://tampermonkey.net/
-// @author       Bas
-// @version      2.3
+// @author       Bas D.
+// @version      2.4
 // @description  Displays full test details (score, commentary, etc.) for newly discovered tests, upcoming tests and the user's scores
 // @match        https://*.smartschool.be/*
 // @match        https://olva.sisofoscloud.be/*
@@ -23,7 +23,7 @@
 
 (function () {
     "use strict";
-    const currentVersion = "2.3"
+    const currentVersion = "2.4"
 
     function handleNewVersion() {
         const storedVersion = localStorage.getItem("SmartschoolPlusVersion");
@@ -459,10 +459,6 @@
         "#leftcontainer": { STORAGEKEY: "blockOrderLeft", HIDDENKEY: "hiddenBlockIdsLeft" },
         "#rightcontainer": { STORAGEKEY: "blockOrderRight", HIDDENKEY: "hiddenBlockIdsRight" },
     };
-    const CONTAINER_CHILDREN = {
-        "#leftcontainer": [".homepage__block #homepage__block--schedule"],
-        "#rightcontainer": [".homepage__block #homepage__block--punten", ".homepage__block #homepage__block--toetsen"],
-    };
 
     // --- Global state ---
     let tries = 0
@@ -601,7 +597,6 @@
             return
         }
 
-        const children = CONTAINER_CHILDREN[containerSelector];
         const { STORAGEKEY, HIDDENKEY } = CONTAINERS[containerSelector];
 
         function tryInit() {
@@ -1027,11 +1022,16 @@
         if (days.length) {
             days.forEach((day, idx) => {
                 const dateObj = new Date(day);
+                // TODO: add link to https://olva.smartschool.be/planner/main/user/[SS_userId]/[Date: YYYY-MM-DD]/planned-assignments/[test.courses[0].platformId]/105c3cb3-539a-4704-970d-c2ab10102d4b
+                console.log("Test object:", grouped[Object.keys(grouped)[0]]?.[0]);
+                const userId = localStorage.getItem("SmartschoolUserId")
+
                 const dayName = dateObj.toLocaleDateString("nl-NL", { weekday: "long" });
                 const formatted = `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} (${dateObj
                 .getDate()
                 .toString()
                 .padStart(2, "0")}-${(dateObj.getMonth() + 1).toString().padStart(2, "0")})`;
+
                 html.push(`<h3 style="margin-top:10px; margin-bottom:5px;">${formatted}</h3>`);
                 const arr = grouped[day];
                 for (let i = 0; i < arr.length; i++) {
@@ -1040,9 +1040,17 @@
                     const scheduleCodes = courses ? courses.scheduleCodes[0] : "";
                     const abbrev = t.assignmentType ? t.assignmentType.abbreviation : "";
                     const time = new Date(t.period.dateTimeFrom).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+                    const testUrl = `https://olva.smartschool.be/planner/main/user/${userId}/${day}/planned-assignments/${t.courses[0].platformId}/${t.id}`;
+
                     const border = i < arr.length - 1 ? "border-bottom:1px dotted #aaa;margin-bottom:5px;padding-bottom:5px;" : "";
 
-                    html.push(`<p style="margin:0;padding:2px 0;${border}">[${scheduleCodes}] [${abbrev}] ${t.name} om ${time}</p>`);
+                    html.push(`
+                        <p style="margin:0;padding:2px 0;${border}">
+                            [${scheduleCodes}] [${abbrev}]
+                            <a href="${testUrl}" target="_blank">${t.name}</a>
+                            om ${time}
+                        </p>
+                    `);
                 }
                 if (idx < days.length - 1) html.push(`<hr style="border-top:1px solid #000;margin:10px 0;">`);
             });
@@ -1414,7 +1422,7 @@
                     return;
                 case "b":
                     event.preventDefault();
-                    simulateClickWhenReady(q(".js-favourites-container"));
+                    simulateClickWhenReady(q(".js-favourites-container .topnav__btn"));
                     return;
                 case "v":
                     event.preventDefault();
